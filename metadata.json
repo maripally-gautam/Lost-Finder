@@ -1,0 +1,9 @@
+{
+  "name": "FinderGuard AI",
+  "description": "Secure, AI-powered Lost & Found Matcher with privacy protection.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
