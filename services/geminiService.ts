@@ -5,12 +5,11 @@ import { api } from './db';
 // NOTE: In a real production app, this call would happen on a Backend (Cloud Functions).
 // For this frontend-only demo, we call it directly.
 
-// Initialize the Gemini API client only if API key is available
-const apiKey = process.env.API_KEY || '';
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+// Initialize the Gemini API client directly with the environment variable as per guidelines.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const findPotentialMatches = async (foundItem: Item): Promise<Partial<Match>[]> => {
-  if (!process.env.API_KEY || !ai) {
+  if (!process.env.API_KEY) {
     console.warn("Gemini API Key missing. Returning mock matches.");
     return [];
   }
@@ -18,7 +17,7 @@ export const findPotentialMatches = async (foundItem: Item): Promise<Partial<Mat
   // 1. Fetch potential lost items (e.g., same category, recent)
   // In a real app, use geospatial queries first.
   const allLostItems = await api.items.getLostItems();
-  const candidates = allLostItems.filter(i =>
+  const candidates = allLostItems.filter(i => 
     i.category === foundItem.category && i.status === 'lost'
   );
 
@@ -67,12 +66,12 @@ export const findPotentialMatches = async (foundItem: Item): Promise<Partial<Mat
       // Assuming image is base64 data URL
       const base64Data = foundItem.image.split(',')[1];
       if (base64Data) {
-        parts.push({
-          inlineData: {
-            mimeType: 'image/jpeg',
-            data: base64Data
-          }
-        });
+         parts.push({
+           inlineData: {
+             mimeType: 'image/jpeg',
+             data: base64Data
+           }
+         });
       }
     }
 
@@ -97,7 +96,7 @@ export const findPotentialMatches = async (foundItem: Item): Promise<Partial<Mat
     });
 
     const matchesData = JSON.parse(response.text || '[]');
-
+    
     return matchesData.map((m: any) => ({
       lostItemId: m.lostItemId,
       foundItemId: foundItem.id,
