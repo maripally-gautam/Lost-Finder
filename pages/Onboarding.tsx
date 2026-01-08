@@ -1,11 +1,12 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../App';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/db';
-import { signInWithGoogle, signInWithGoogleForLogin } from '../services/firebase';
+import { signInWithGoogle, signInWithGoogleForLogin, handleAuthRedirect } from '../services/firebase';
 import { APP_NAME } from '../constants';
 import { Shield, Sparkles, Lock, CheckCircle, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
 
 const slides = [
   {
@@ -36,6 +37,58 @@ export const Onboarding: React.FC = () => {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const isMobile = Capacitor.isNativePlatform();
+
+  // Handle redirect result when app returns from Google Sign-In (mobile only)
+  useEffect(() => {
+    if (isMobile) {
+      handleAuthRedirect().then(async (result) => {
+        if (result.user) {
+          // User signed in successfully via redirect
+          const storedUsername = localStorage.getItem('pending_username');
+          const isSignup = localStorage.getItem('is_signup') === 'true';
+
+          if (isSignup && storedUsername) {
+            // This is a sign-up flow
+            const newUser = {
+              uid: result.user.uid,
+              username: storedUsername,
+              email: result.user.email || undefined,
+              photoURL: result.user.photoURL || undefined,
+              trustScore: 100,
+              reportsCount: 0,
+              joinedAt: Date.now(),
+              isVerified: true
+            };
+
+            const createResult = await api.users.create(newUser);
+            if (createResult.success) {
+              localStorage.removeItem('pending_username');
+              localStorage.removeItem('is_signup');
+              login(newUser);
+              navigate('/');
+            } else {
+              setError(createResult.error || 'Failed to create account');
+              setLoading(false);
+            }
+          } else {
+            // This is a sign-in flow
+            const existingUser = await api.users.get(result.user.uid);
+            if (existingUser) {
+              localStorage.removeItem('pending_username');
+              localStorage.removeItem('is_signup');
+              login(existingUser);
+              navigate('/');
+            } else {
+              setError('Account not found. Please sign up first.');
+              setLoading(false);
+            }
+          }
+        }
+      });
+    }
+  }, [isMobile, login, navigate]);
 
   const handleNext = () => {
     if (currentSlide < slides.length - 1) {
@@ -55,52 +108,78 @@ export const Onboarding: React.FC = () => {
     setLoading(true);
     setError('');
 
-    // Check if username is available
-    const isTaken = await api.users.isUsernameTaken(username.trim());
-    if (isTaken) {
-      setError('Username already exists. Please choose a different username.');
-      setLoading(false);
-      return;
-    }
+    try {
+      // Check if username is available
+      const isTaken = await api.users.isUsernameTaken(username.trim());
+      if (isTaken) {
+        setError('Username already exists. Please choose a different username.');
+        setLoading(false);
+        return;
+      }
 
-    setLoading(false);
-    setStep('google');
+      setLoading(false);
+      setStep('google');
+    } catch (err: any) {
+      console.error('Username check error:', err);
+      setError('Unable to check username availability. Please try again.');
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
 
-    const { user: googleUser, error: googleError } = await signInWithGoogle();
+    try {
+      // Store username for mobile redirect flow
+      if (isMobile) {
+        localStorage.setItem('pending_username', username.trim());
+        localStorage.setItem('is_signup', 'true');
+        setIsRedirecting(true);
+      }
 
-    if (googleError || !googleUser) {
-      setError(googleError || 'Failed to sign in with Google');
+      const { user: googleUser, error: googleError, redirecting } = await signInWithGoogle();
+
+      // If redirecting (mobile), the function returns immediately
+      if (redirecting) {
+        // The redirect is in progress, loading state will be maintained
+        return;
+      }
+
+      if (googleError || !googleUser) {
+        setError(googleError || 'Failed to sign in with Google');
+        setLoading(false);
+        return;
+      }
+
+      const newUser = {
+        uid: googleUser.uid,
+        username: username.trim(),
+        email: googleUser.email || undefined,
+        photoURL: googleUser.photoURL || undefined,
+        trustScore: 100,
+        reportsCount: 0,
+        joinedAt: Date.now(),
+        isVerified: true
+      };
+
+      const result = await api.users.create(newUser);
+
+      if (!result.success) {
+        setError(result.error || 'Failed to create account');
+        setLoading(false);
+        return;
+      }
+
+      login(newUser);
       setLoading(false);
-      return;
-    }
-
-    const newUser = {
-      uid: googleUser.uid,
-      username: username.trim(),
-      email: googleUser.email || undefined,
-      photoURL: googleUser.photoURL || undefined,
-      trustScore: 100,
-      reportsCount: 0,
-      joinedAt: Date.now(),
-      isVerified: true
-    };
-
-    const result = await api.users.create(newUser);
-
-    if (!result.success) {
-      setError(result.error || 'Failed to create account');
+      navigate('/');
+    } catch (err: any) {
+      console.error('Sign-up error:', err);
+      setError('An unexpected error occurred. Please try again.');
       setLoading(false);
-      return;
+      setIsRedirecting(false);
     }
-
-    login(newUser);
-    setLoading(false);
-    navigate('/');
   };
 
   // Sign In flow - for existing users
@@ -108,27 +187,46 @@ export const Onboarding: React.FC = () => {
     setLoading(true);
     setError('');
 
-    const result = await signInWithGoogleForLogin();
+    try {
+      // Store flag for mobile redirect flow
+      if (isMobile) {
+        localStorage.setItem('is_signup', 'false');
+        setIsRedirecting(true);
+      }
 
-    if (result.error || !result.user) {
-      setError(result.error || 'Failed to sign in with Google');
+      const result = await signInWithGoogleForLogin();
+
+      // If redirecting (mobile), the function returns immediately
+      if (result.redirecting) {
+        // The redirect is in progress, loading state will be maintained
+        return;
+      }
+
+      if (result.error || !result.user) {
+        setError(result.error || 'Failed to sign in with Google');
+        setLoading(false);
+        return;
+      }
+
+      // Check if this Google account is linked to an existing user
+      const existingUser = await api.users.get(result.user.uid);
+
+      if (!existingUser) {
+        setError('Account not linked. You have to sign up first.');
+        setLoading(false);
+        return;
+      }
+
+      // User exists - log them in
+      login(existingUser);
       setLoading(false);
-      return;
-    }
-
-    // Check if this Google account is linked to an existing user
-    const existingUser = await api.users.get(result.user.uid);
-
-    if (!existingUser) {
-      setError('Account not linked. You have to sign up first.');
+      navigate('/');
+    } catch (err: any) {
+      console.error('Sign-in error:', err);
+      setError('An unexpected error occurred. Please try again.');
       setLoading(false);
-      return;
+      setIsRedirecting(false);
     }
-
-    // User exists - log them in
-    login(existingUser);
-    setLoading(false);
-    navigate('/');
   };
 
   // Sign In Step (for existing users)
@@ -165,7 +263,7 @@ export const Onboarding: React.FC = () => {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            {loading ? 'Signing in...' : 'Continue with Google'}
+            {loading ? (isRedirecting ? 'Redirecting to Google...' : 'Signing in...') : 'Continue with Google'}
           </button>
 
           <button
@@ -220,7 +318,7 @@ export const Onboarding: React.FC = () => {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
-            {loading ? 'Signing in...' : 'Continue with Google'}
+            {loading ? (isRedirecting ? 'Redirecting to Google...' : 'Signing in...') : 'Continue with Google'}
           </button>
 
           <button

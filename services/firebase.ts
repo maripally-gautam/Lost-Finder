@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
+import { Capacitor } from '@capacitor/core';
 
 // Your Firebase configuration
 // Replace these with your actual Firebase project config from Firebase Console
@@ -22,34 +23,97 @@ export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
+// Check if running on native mobile platform
+const isMobile = Capacitor.isNativePlatform();
+
+// Enable offline persistence for better UX (optional but recommended)
+if (typeof window !== 'undefined' && firebaseConfig.projectId) {
+    enableIndexedDbPersistence(db)
+        .catch((err) => {
+            if (err.code === 'failed-precondition') {
+                console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+            } else if (err.code === 'unimplemented') {
+                console.warn('The current browser does not support offline persistence');
+            }
+        });
+}
+
 // Google Auth Provider
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+    prompt: 'select_account'
+});
+
+// Handle redirect result (for mobile apps)
+export const handleAuthRedirect = async () => {
+    try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+            return { user: result.user, error: null };
+        }
+        return { user: null, error: null };
+    } catch (error: any) {
+        console.error('Redirect result error:', error);
+        return { user: null, error: error.message || 'Authentication failed' };
+    }
+};
 
 // Sign in with Google (for new account registration)
 export const signInWithGoogle = async () => {
     try {
-        const result = await signInWithPopup(auth, googleProvider);
-        return { user: result.user, error: null };
+        if (isMobile) {
+            // Use redirect for mobile apps (Android/iOS)
+            await signInWithRedirect(auth, googleProvider);
+            // The redirect will happen, and we'll get the result when the app returns
+            return { user: null, error: null, redirecting: true };
+        } else {
+            // Use popup for web browsers
+            const result = await signInWithPopup(auth, googleProvider);
+            return { user: result.user, error: null };
+        }
     } catch (error: any) {
-        return { user: null, error: error.message };
+        console.error('Google Sign-In Error:', error);
+        if (error.code === 'auth/popup-closed-by-user') {
+            return { user: null, error: 'Sign-in cancelled. Please try again.' };
+        } else if (error.code === 'auth/popup-blocked') {
+            return { user: null, error: 'Pop-up was blocked. Please allow pop-ups for this site.' };
+        } else if (error.code === 'auth/cancelled-popup-request') {
+            return { user: null, error: 'Another sign-in attempt is in progress.' };
+        }
+        return { user: null, error: error.message || 'Failed to sign in with Google' };
     }
 };
 
 // Sign in with Google for existing users (checks if account exists)
 export const signInWithGoogleForLogin = async () => {
     try {
-        const result = await signInWithPopup(auth, googleProvider);
-        // Return the Google user info - caller will check if user exists in DB
-        return {
-            user: result.user,
-            error: null,
-            uid: result.user.uid,
-            email: result.user.email,
-            displayName: result.user.displayName,
-            photoURL: result.user.photoURL
-        };
+        if (isMobile) {
+            // Use redirect for mobile apps (Android/iOS)
+            await signInWithRedirect(auth, googleProvider);
+            // The redirect will happen, and we'll get the result when the app returns
+            return { user: null, error: null, redirecting: true };
+        } else {
+            // Use popup for web browsers
+            const result = await signInWithPopup(auth, googleProvider);
+            return {
+                user: result.user,
+                error: null,
+                uid: result.user.uid,
+                email: result.user.email,
+                displayName: result.user.displayName,
+                photoURL: result.user.photoURL
+            };
+        }
     } catch (error: any) {
-        return { user: null, error: error.message };
+        console.error('Google Sign-In Error:', error);
+        if (error.code === 'auth/popup-closed-by-user') {
+            return { user: null, error: 'Sign-in cancelled. Please try again.' };
+        } else if (error.code === 'auth/popup-blocked') {
+            return { user: null, error: 'Pop-up was blocked. Please allow pop-ups for this site.' };
+        } else if (error.code === 'auth/cancelled-popup-request') {
+            return { user: null, error: 'Another sign-in attempt is in progress.' };
+        }
+        return { user: null, error: error.message || 'Failed to sign in with Google' };
     }
 };
 

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "457347444578",
+    "project_id": "tracemate-ai",
+    "storage_bucket": "tracemate-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:457347444578:android:58ff2c893e5ebccea1463b",
+        "android_client_info": {
+          "package_name": "com.lostlink.ai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "457347444578-58hrjhk84e3087vi653q0vu2vdub7636.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lostlink.ai",
+            "certificate_hash": "e2de3a4bed9148bf89e0c6db854b1ef2ff0ab5d8"
+          }
+        },
+        {
+          "client_id": "457347444578-pph61p9b4o8dfmns07peofbisdsubqoo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAudSu1PTd6DEs0GOhj2tAA43pj0YUqA84"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "457347444578-pph61p9b4o8dfmns07peofbisdsubqoo.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
