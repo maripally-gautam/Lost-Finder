@@ -6,12 +6,17 @@ import { findPotentialMatches } from '../services/geminiService';
 import { CATEGORIES } from '../constants';
 import { GeoLocation } from '../types';
 import { Camera, Sparkles, AlertTriangle } from 'lucide-react';
+import { Textarea } from '../components/ui/textarea';
+import { Button } from '../components/ui/button';
+import { Label } from '../components/ui/label';
+import { Card } from '../components/ui/card';
+import { Alert, AlertDescription } from '../components/ui/alert';
 
 export const PostFound: React.FC = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  
+
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [image, setImage] = useState<string>('');
@@ -52,7 +57,7 @@ export const PostFound: React.FC = () => {
     // 3. Trigger AI Matching
     try {
       const matches = await findPotentialMatches(newItem);
-      
+
       // 4. Save Matches
       for (const match of matches) {
         if (match.lostItemId && match.confidence) {
@@ -68,7 +73,7 @@ export const PostFound: React.FC = () => {
 
       // 5. Redirect
       navigate('/matches');
-      
+
     } catch (e) {
       console.error(e);
       // Even if AI fails, we posted the item
@@ -80,46 +85,46 @@ export const PostFound: React.FC = () => {
 
   return (
     <div className="max-w-xl mx-auto pb-10">
-      <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-start space-x-3">
-        <AlertTriangle className="text-yellow-500 shrink-0" size={20} />
-        <div>
-          <h3 className="font-bold text-yellow-500 text-sm">Strictly Private</h3>
-          <p className="text-xs text-yellow-200/80 mt-1">
+      <Alert className="mb-6 bg-yellow-500/10 border-yellow-500/30">
+        <AlertTriangle className="text-yellow-500" size={20} />
+        <AlertDescription className="text-yellow-200/80">
+          <h3 className="font-bold text-yellow-500 text-sm mb-1">Strictly Private</h3>
+          <p className="text-xs">
             This item will NOT be shown on the public feed. It is only visible to our AI to find a match.
           </p>
-        </div>
-      </div>
+        </AlertDescription>
+      </Alert>
 
       <h2 className="text-2xl font-bold mb-6">Report Found Item</h2>
 
       <div className="space-y-6">
-        <div className="space-y-4 bg-brand-800 p-4 rounded-xl border border-brand-700">
-           <label className="block">
-            <span className="text-sm font-medium text-slate-300">Category</span>
-            <select 
-              className="mt-1 w-full bg-brand-900 border border-brand-700 rounded-lg p-3 text-sm outline-none"
+        <Card className="space-y-4 bg-brand-800 p-4 border-brand-700">
+          <div>
+            <Label className="text-slate-300">Category</Label>
+            <select
+              className="mt-1 w-full bg-brand-900 border border-brand-700 rounded-lg p-3 text-sm outline-none text-white"
               value={category}
               onChange={e => setCategory(e.target.value)}
             >
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-          </label>
+          </div>
 
-          <label className="block">
-             <span className="text-sm font-medium text-slate-300">Description</span>
-             <textarea 
-               className="mt-1 w-full bg-brand-900 border border-brand-700 rounded-lg p-3 text-sm outline-none h-24"
-               placeholder="Describe the item clearly..."
-               value={description}
-               onChange={e => setDescription(e.target.value)}
-             />
-          </label>
-        </div>
+          <div>
+            <Label className="text-slate-300">Description</Label>
+            <Textarea
+              className="mt-1 bg-brand-900 border-brand-700 text-white min-h-24"
+              placeholder="Describe what you found..."
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+            />
+          </div>
+        </Card>
 
         {/* Image Upload */}
         <div className="border-2 border-dashed border-brand-700 rounded-xl p-6 text-center hover:bg-brand-800/50 transition-colors relative">
-          <input 
-            type="file" 
+          <input
+            type="file"
             accept="image/*"
             onChange={handleImageUpload}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -129,28 +134,30 @@ export const PostFound: React.FC = () => {
           ) : (
             <div className="flex flex-col items-center text-slate-400">
               <Camera size={32} className="mb-2" />
-              <span className="text-sm">Upload Photo (Required for AI)</span>
+              <span className="text-sm">Tap to upload photo</span>
             </div>
           )}
         </div>
 
-        <button 
+        {/* Submit */}
+        <Button
           onClick={handlePostAndMatch}
           disabled={isAnalyzing || !description}
-          className="w-full bg-gradient-to-r from-brand-500 to-brand-accent text-white font-bold py-4 rounded-xl shadow-lg shadow-brand-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-2"
+          size="lg"
+          className="w-full bg-gradient-to-r from-brand-500 to-brand-accent hover:opacity-90 text-white font-bold py-4 shadow-lg"
         >
           {isAnalyzing ? (
             <>
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Analyzing Matches...</span>
+              <Sparkles className="animate-pulse" size={18} />
+              AI is Matching...
             </>
           ) : (
             <>
               <Sparkles size={18} />
-              <span>Post & Find Owner</span>
+              Post & Match with AI
             </>
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );

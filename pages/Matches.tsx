@@ -4,6 +4,10 @@ import { api } from '../services/db';
 import { Match, Item } from '../types';
 import { Link } from 'react-router-dom';
 import { CheckCircle, XCircle, MessageCircle } from 'lucide-react';
+import { Card } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Skeleton } from '../components/ui/skeleton';
 
 export const Matches: React.FC = () => {
   const { user } = useContext(AuthContext);
@@ -20,7 +24,7 @@ export const Matches: React.FC = () => {
     if (!user) return;
     setLoading(true);
     const userMatches = await api.matches.getUserMatches(user.uid);
-    
+
     // Enrich with item details
     const enriched = await Promise.all(userMatches.map(async (m) => {
       const lostItem = await api.items.getById(m.lostItemId);
@@ -40,29 +44,32 @@ export const Matches: React.FC = () => {
       </h2>
 
       {loading ? (
-        <div className="animate-pulse space-y-4">
-           {[1,2].map(k => <div key={k} className="h-40 bg-brand-800 rounded-xl" />)}
+        <div className="space-y-4">
+          {[1, 2].map(k => <Skeleton key={k} className="h-40 bg-brand-800 rounded-xl" />)}
         </div>
       ) : matches.length === 0 ? (
-        <div className="text-center py-20 text-slate-500 bg-brand-800/30 rounded-xl border border-dashed border-brand-700">
+        <Card className="text-center py-20 text-slate-500 bg-brand-800/30 border-dashed border-brand-700">
           <p>No matches found yet.</p>
           <p className="text-sm mt-2">We will notify you when our AI finds something.</p>
-        </div>
+        </Card>
       ) : (
         <div className="space-y-6">
           {matches.map((match) => (
-            <div key={match.id} className="bg-brand-800 rounded-xl border border-brand-700 overflow-hidden">
+            <Card key={match.id} className="bg-brand-800 border-brand-700 overflow-hidden p-0">
               <div className="p-4 border-b border-brand-700 flex justify-between items-center bg-brand-800/50">
                 <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">
                   {match.confidence}% Confidence
                 </span>
-                <span className={`text-[10px] px-2 py-1 rounded-full uppercase font-bold
-                  ${match.status === 'pending' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-green-500/20 text-green-500'}
-                `}>
+                <Badge
+                  variant={match.status === 'pending' ? 'secondary' : 'default'}
+                  className={`text-[10px] uppercase
+                    ${match.status === 'pending' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30' : 'bg-green-500/20 text-green-500 border-green-500/30'}
+                  `}
+                >
                   {match.status}
-                </span>
+                </Badge>
               </div>
-              
+
               <div className="p-4 grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Lost Item</p>
@@ -75,15 +82,18 @@ export const Matches: React.FC = () => {
               </div>
 
               <div className="px-4 pb-4">
-                 <Link 
-                   to={`/chat/${match.id}`}
-                   className="block w-full text-center bg-brand-700 hover:bg-brand-600 py-3 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center space-x-2"
-                 >
-                   <MessageCircle size={16} />
-                   <span>Open Secure Chat</span>
-                 </Link>
+                <Button
+                  asChild
+                  variant="secondary"
+                  className="w-full bg-brand-700 hover:bg-brand-600"
+                >
+                  <Link to={`/chat/${match.id}`} className="flex items-center justify-center space-x-2">
+                    <MessageCircle size={16} />
+                    <span>Open Secure Chat</span>
+                  </Link>
+                </Button>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

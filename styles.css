@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #0f172a;
+    color: #f8fafc;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+    min-height: 100%;
+    width: 100%;
+}
+
+/* Hide scrollbar for clean mobile look */
+::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+}
+
+/* Safe area for mobile devices */
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Capacitor specific fixes */
+ion-app,
+.ion-page {
+    background-color: #0f172a;
+}

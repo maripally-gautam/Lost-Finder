@@ -1,7 +1,37 @@
 import { Item, Match, UserProfile, ChatSession, Message } from '../types';
-import { DEMO_MODE } from '../constants';
+import { db } from './firebase';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  setDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  serverTimestamp,
+} from 'firebase/firestore';
 
-// --- MOCK DATA STORE (LocalStorage Wrapper) ---
+// Collection names
+const COLLECTIONS = {
+  USERS: 'users',
+  ITEMS: 'items',
+  MATCHES: 'matches',
+  CHATS: 'chats',
+  MESSAGES: 'messages',
+};
+
+// Check if Firebase is configured (fallback to localStorage if not)
+const isFirebaseConfigured = () => {
+  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+  return projectId && projectId !== 'your_project_id';
+};
+
+// --- LOCAL STORAGE FALLBACK (for development without Firebase) ---
 const STORAGE_KEYS = {
   USERS: 'fg_users',
   ITEMS: 'fg_items',
@@ -25,101 +55,272 @@ export const api = {
   items: {
     // Get visible lost items (public feed)
     getLostItems: async (): Promise<Item[]> => {
-      if (DEMO_MODE) {
+      if (!isFirebaseConfigured()) {
         const items = getStore<Item>(STORAGE_KEYS.ITEMS);
         return items.filter(i => i.type === 'lost' && i.status === 'lost')
-                    .sort((a, b) => b.timestamp - a.timestamp);
+          .sort((a, b) => b.timestamp - a.timestamp);
       }
-      return []; // Real Firebase implementation would go here
+
+      // Firebase implementation
+      const q = query(
+        collection(db, COLLECTIONS.ITEMS),
+        where('type', '==', 'lost'),
+        where('status', '==', 'lost'),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Item));
     },
-    
+
     // Add new item
     add: async (item: Omit<Item, 'id'>): Promise<string> => {
-      if (DEMO_MODE) {
+      if (!isFirebaseConfigured()) {
         const items = getStore<Item>(STORAGE_KEYS.ITEMS);
         const newItem = { ...item, id: Math.random().toString(36).substr(2, 9) };
         items.push(newItem);
         setStore(STORAGE_KEYS.ITEMS, items);
         return newItem.id;
       }
-      return '';
+
+      // Firebase implementation
+      const docRef = await addDoc(collection(db, COLLECTIONS.ITEMS), {
+        ...item,
+        createdAt: serverTimestamp(),
+      });
+      return docRef.id;
     },
 
     getById: async (id: string): Promise<Item | undefined> => {
-       if (DEMO_MODE) {
-         return getStore<Item>(STORAGE_KEYS.ITEMS).find(i => i.id === id);
-       }
-       return undefined;
+      if (!isFirebaseConfigured()) {
+        return getStore<Item>(STORAGE_KEYS.ITEMS).find(i => i.id === id);
+      }
+
+      // Firebase implementation
+      const docRef = doc(db, COLLECTIONS.ITEMS, id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Item;
+      }
+      return undefined;
     },
 
     update: async (id: string, updates: Partial<Item>): Promise<void> => {
-      if (DEMO_MODE) {
+      if (!isFirebaseConfigured()) {
         const items = getStore<Item>(STORAGE_KEYS.ITEMS);
         const index = items.findIndex(i => i.id === id);
         if (index !== -1) {
           items[index] = { ...items[index], ...updates };
           setStore(STORAGE_KEYS.ITEMS, items);
         }
+        return;
       }
+
+      // Firebase implementation
+      const docRef = doc(db, COLLECTIONS.ITEMS, id);
+      await updateDoc(docRef, { ...updates, updatedAt: serverTimestamp() });
+    },
+
+    // Delete an item
+    delete: async (id: string): Promise<void> => {
+      if (!isFirebaseConfigured()) {
+        const items = getStore<Item>(STORAGE_KEYS.ITEMS);
+        const filtered = items.filter(i => i.id !== id);
+        setStore(STORAGE_KEYS.ITEMS, filtered);
+        return;
+      }
+
+      // Firebase implementation
+      const docRef = doc(db, COLLECTIONS.ITEMS, id);
+      await deleteDoc(docRef);
+    },
+
+    // Get user's items (both lost and found)
+    getUserItems: async (userId: string): Promise<Item[]> => {
+      if (!isFirebaseConfigured()) {
+        const items = getStore<Item>(STORAGE_KEYS.ITEMS);
+        return items.filter(i => i.userId === userId).sort((a, b) => b.timestamp - a.timestamp);
+      }
+
+      // Firebase implementation
+      const q = query(
+        collection(db, COLLECTIONS.ITEMS),
+        where('userId', '==', userId),
+        orderBy('timestamp', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Item));
     }
   },
 
   matches: {
     create: async (match: Omit<Match, 'id'>): Promise<string> => {
-      if (DEMO_MODE) {
+      if (!isFirebaseConfigured()) {
         const matches = getStore<Match>(STORAGE_KEYS.MATCHES);
         const newMatch = { ...match, id: Math.random().toString(36).substr(2, 9) };
         matches.push(newMatch);
         setStore(STORAGE_KEYS.MATCHES, matches);
         return newMatch.id;
       }
-      return '';
+
+      // Firebase implementation
+      const docRef = await addDoc(collection(db, COLLECTIONS.MATCHES), {
+        ...match,
+        createdAt: serverTimestamp(),
+      });
+      return docRef.id;
     },
-    
+
     getUserMatches: async (userId: string): Promise<Match[]> => {
-      if (DEMO_MODE) {
-        // Find matches where user owns the lost item OR the found item
+      if (!isFirebaseConfigured()) {
         const matches = getStore<Match>(STORAGE_KEYS.MATCHES);
         const items = getStore<Item>(STORAGE_KEYS.ITEMS);
-        
-        // Helper to find item owner
         const getOwner = (itemId: string) => items.find(i => i.id === itemId)?.userId;
-
         return matches.filter(m => {
-           const lostOwner = getOwner(m.lostItemId);
-           const foundOwner = getOwner(m.foundItemId);
-           return lostOwner === userId || foundOwner === userId;
+          const lostOwner = getOwner(m.lostItemId);
+          const foundOwner = getOwner(m.foundItemId);
+          return lostOwner === userId || foundOwner === userId;
         });
       }
-      return [];
+
+      // Firebase implementation
+      const itemsQuery = query(
+        collection(db, COLLECTIONS.ITEMS),
+        where('userId', '==', userId)
+      );
+      const itemsSnapshot = await getDocs(itemsQuery);
+      const userItemIds = itemsSnapshot.docs.map(doc => doc.id);
+
+      if (userItemIds.length === 0) return [];
+
+      const matchesSnapshot = await getDocs(collection(db, COLLECTIONS.MATCHES));
+      return matchesSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Match))
+        .filter(m => userItemIds.includes(m.lostItemId) || userItemIds.includes(m.foundItemId));
     },
 
     update: async (id: string, updates: Partial<Match>) => {
-      if (DEMO_MODE) {
+      if (!isFirebaseConfigured()) {
         const matches = getStore<Match>(STORAGE_KEYS.MATCHES);
         const idx = matches.findIndex(m => m.id === id);
-        if(idx !== -1) {
+        if (idx !== -1) {
           matches[idx] = { ...matches[idx], ...updates };
           setStore(STORAGE_KEYS.MATCHES, matches);
         }
+        return;
       }
+
+      // Firebase implementation
+      const docRef = doc(db, COLLECTIONS.MATCHES, id);
+      await updateDoc(docRef, { ...updates, updatedAt: serverTimestamp() });
     }
   },
 
   users: {
     get: async (uid: string): Promise<UserProfile | null> => {
-      if (DEMO_MODE) {
+      if (!isFirebaseConfigured()) {
         const users = getStore<UserProfile>(STORAGE_KEYS.USERS);
         return users.find(u => u.uid === uid) || null;
       }
+
+      // Firebase implementation
+      const docRef = doc(db, COLLECTIONS.USERS, uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as UserProfile;
+      }
       return null;
     },
-    create: async (user: UserProfile) => {
-      if (DEMO_MODE) {
+
+    // Check if username already exists
+    isUsernameTaken: async (username: string): Promise<boolean> => {
+      if (!isFirebaseConfigured()) {
+        const users = getStore<UserProfile>(STORAGE_KEYS.USERS);
+        return users.some(u => u.username.toLowerCase() === username.toLowerCase());
+      }
+
+      // Firebase implementation
+      const q = query(
+        collection(db, COLLECTIONS.USERS),
+        where('usernameLower', '==', username.toLowerCase()),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      return !snapshot.empty;
+    },
+
+    create: async (user: UserProfile): Promise<{ success: boolean; error?: string }> => {
+      // First check if username is taken
+      const isTaken = await api.users.isUsernameTaken(user.username);
+      if (isTaken) {
+        return { success: false, error: 'Username already exists. Please choose a different username.' };
+      }
+
+      if (!isFirebaseConfigured()) {
         const users = getStore<UserProfile>(STORAGE_KEYS.USERS);
         users.push(user);
         setStore(STORAGE_KEYS.USERS, users);
+        return { success: true };
       }
+
+      // Firebase implementation - use uid as document ID
+      const docRef = doc(db, COLLECTIONS.USERS, user.uid);
+      await setDoc(docRef, {
+        ...user,
+        usernameLower: user.username.toLowerCase(), // For case-insensitive lookups
+        createdAt: serverTimestamp(),
+      });
+      return { success: true };
+    },
+
+    // Get user by username
+    getByUsername: async (username: string): Promise<UserProfile | null> => {
+      if (!isFirebaseConfigured()) {
+        const users = getStore<UserProfile>(STORAGE_KEYS.USERS);
+        return users.find(u => u.username.toLowerCase() === username.toLowerCase()) || null;
+      }
+
+      // Firebase implementation
+      const q = query(
+        collection(db, COLLECTIONS.USERS),
+        where('usernameLower', '==', username.toLowerCase()),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        return snapshot.docs[0].data() as UserProfile;
+      }
+      return null;
+    },
+
+    // Update user profile
+    update: async (uid: string, updates: Partial<UserProfile>): Promise<void> => {
+      if (!isFirebaseConfigured()) {
+        const users = getStore<UserProfile>(STORAGE_KEYS.USERS);
+        const index = users.findIndex(u => u.uid === uid);
+        if (index !== -1) {
+          users[index] = { ...users[index], ...updates };
+          setStore(STORAGE_KEYS.USERS, users);
+        }
+        return;
+      }
+
+      // Firebase implementation
+      const docRef = doc(db, COLLECTIONS.USERS, uid);
+      await updateDoc(docRef, { ...updates, updatedAt: serverTimestamp() });
+    },
+
+    // Check if user exists by Firebase UID (for sign-in)
+    existsByUid: async (uid: string): Promise<boolean> => {
+      if (!isFirebaseConfigured()) {
+        const users = getStore<UserProfile>(STORAGE_KEYS.USERS);
+        return users.some(u => u.uid === uid);
+      }
+
+      // Firebase implementation
+      const docRef = doc(db, COLLECTIONS.USERS, uid);
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists();
     }
   }
 };

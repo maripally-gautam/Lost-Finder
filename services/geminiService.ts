@@ -6,11 +6,11 @@ import { api } from './db';
 // For this frontend-only demo, we call it directly.
 
 // Initialize the Gemini API client only if API key is available
-const apiKey = process.env.API_KEY || '';
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const findPotentialMatches = async (foundItem: Item): Promise<Partial<Match>[]> => {
-  if (!process.env.API_KEY || !ai) {
+  if (!import.meta.env.VITE_GEMINI_API_KEY || !ai) {
     console.warn("Gemini API Key missing. Returning mock matches.");
     return [];
   }

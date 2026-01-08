@@ -7,6 +7,8 @@ import { PostFound } from './pages/PostFound';
 import { Matches } from './pages/Matches';
 import { Chat } from './pages/Chat';
 import { Onboarding } from './pages/Onboarding';
+import { Settings } from './pages/Settings';
+import { Profile } from './pages/Profile';
 import { UserProfile } from './types';
 import { api } from './services/db';
 
@@ -14,7 +16,7 @@ export const AuthContext = React.createContext<{
   user: UserProfile | null;
   login: (u: UserProfile) => void;
   logout: () => void;
-}>({ user: null, login: () => {}, logout: () => {} });
+}>({ user: null, login: () => { }, logout: () => { } });
 
 // Simple protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -33,6 +35,8 @@ const AppRoutes = () => {
       <Route path="/post-found" element={<ProtectedRoute><Layout><PostFound /></Layout></ProtectedRoute>} />
       <Route path="/matches" element={<ProtectedRoute><Layout><Matches /></Layout></ProtectedRoute>} />
       <Route path="/chat/:matchId" element={<ProtectedRoute><Layout><Chat /></Layout></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

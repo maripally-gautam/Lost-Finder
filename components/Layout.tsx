@@ -1,11 +1,13 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { NAV_ITEMS, APP_NAME } from '../constants';
-import { Bell, User } from 'lucide-react';
+import { Settings, User } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Avatar, AvatarFallback } from './ui/avatar';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-brand-900 text-slate-100 pb-20 md:pb-0">
@@ -14,14 +16,23 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-brand-accent bg-clip-text text-transparent">
           {APP_NAME}
         </h1>
-        <div className="flex items-center space-x-4">
-          <button className="relative p-2 rounded-full hover:bg-brand-700 transition-colors">
-            <Bell size={20} className="text-slate-300" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-brand-danger rounded-full" />
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => navigate('/settings')}
+            className="p-2 rounded-full hover:bg-brand-700 transition-colors"
+          >
+            <Settings size={20} className="text-slate-300" />
           </button>
-          <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center">
-             <User size={16} />
-          </div>
+          <button
+            onClick={() => navigate('/profile')}
+            className="rounded-full"
+          >
+            <Avatar className="w-8 h-8 bg-brand-600 hover:ring-2 hover:ring-brand-500 transition-all">
+              <AvatarFallback className="bg-brand-600 text-white">
+                <User size={16} />
+              </AvatarFallback>
+            </Avatar>
+          </button>
         </div>
       </header>
 
@@ -42,8 +53,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         {NAV_ITEMS.map((item) => {
           const isActive = location.pathname === item.path;
           return (
-            <Link 
-              key={item.path} 
+            <Link
+              key={item.path}
               to={item.path}
               className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${isActive ? 'text-brand-400' : 'text-slate-500'}`}
             >

@@ -2,6 +2,8 @@ import React from 'react';
 import { Item } from '../types';
 import { MapPin, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Badge } from './ui/badge';
+import { Card } from './ui/card';
 
 interface Props {
   item: Item;
@@ -11,32 +13,34 @@ interface Props {
 
 export const ItemCard: React.FC<Props> = ({ item, onClick, showPrivate }) => {
   return (
-    <div 
+    <Card
       onClick={onClick}
-      className="bg-brand-800 rounded-xl overflow-hidden border border-brand-700 shadow-lg mb-4 cursor-pointer hover:border-brand-500 transition-all"
+      className="bg-brand-800 rounded-xl overflow-hidden border-brand-700 shadow-lg mb-4 cursor-pointer hover:border-brand-500 transition-all p-0"
     >
       <div className="flex">
         {/* Image Section */}
         <div className="w-32 h-32 bg-brand-900 relative flex-shrink-0">
           {item.image ? (
-            <img 
-              src={item.image} 
-              alt={item.title} 
-              className={`w-full h-full object-cover ${!showPrivate ? 'blur-sm scale-110' : ''}`} 
+            <img
+              src={item.image}
+              alt={item.title}
+              className={`w-full h-full object-cover ${!showPrivate ? 'blur-sm scale-110' : ''}`}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs">
               No Image
             </div>
           )}
-          
-          <div className={`absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase
-            ${item.priority === 'High' ? 'bg-red-500/20 text-red-400 border border-red-500/50' : 
-              item.priority === 'Medium' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50' :
-              'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-            }`}>
+
+          <Badge
+            className={`absolute top-2 left-2 text-[10px] uppercase
+              ${item.priority === 'High' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
+                item.priority === 'Medium' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' :
+                  'bg-blue-500/20 text-blue-400 border-blue-500/50'
+              }`}
+          >
             {item.priority}
-          </div>
+          </Badge>
         </div>
 
         {/* Content Section */}
@@ -46,9 +50,9 @@ export const ItemCard: React.FC<Props> = ({ item, onClick, showPrivate }) => {
               <h3 className="font-semibold text-slate-100 truncate pr-2">
                 {item.title}
               </h3>
-              <span className="text-[10px] text-slate-400 bg-brand-900 px-1.5 py-0.5 rounded">
+              <Badge variant="secondary" className="text-[10px] bg-brand-900 px-1.5 py-0.5">
                 {item.category}
-              </span>
+              </Badge>
             </div>
             <p className="text-xs text-slate-400 mt-1 line-clamp-2">
               {item.description}
@@ -67,6 +71,6 @@ export const ItemCard: React.FC<Props> = ({ item, onClick, showPrivate }) => {
           </div>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };

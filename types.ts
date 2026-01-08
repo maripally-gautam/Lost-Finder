@@ -3,10 +3,17 @@ export type UserRole = 'user' | 'admin';
 export interface UserProfile {
   uid: string;
   username: string;
+  email?: string;
+  photoURL?: string;
   trustScore: number;
   reportsCount: number;
   joinedAt: number;
   isVerified: boolean;
+}
+
+export interface AppSettings {
+  notifications: boolean;
+  theme: 'light' | 'dark';
 }
 
 export type ItemPriority = 'Low' | 'Medium' | 'High';
@@ -31,7 +38,7 @@ export interface Item {
   status: ItemStatus;
   timestamp: number;
   image?: string; // Base64 or URL
-  
+
   // Privacy & Verification (Hidden from public)
   privateDetails?: {
     distinguishingMarks?: string;

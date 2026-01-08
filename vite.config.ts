@@ -5,7 +5,8 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
-    base: '/Lost-Finder/',
+    // Use '/' for production/mobile builds, '/Lost-Finder/' for GitHub Pages
+    base: mode === 'github' ? '/Lost-Finder/' : '/',
     server: {
       port: 3000,
       host: '0.0.0.0',
