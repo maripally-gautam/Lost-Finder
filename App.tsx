@@ -9,6 +9,8 @@ import { Chat } from './pages/Chat';
 import { Onboarding } from './pages/Onboarding';
 import { Settings } from './pages/Settings';
 import { Profile } from './pages/Profile';
+import { EditItem } from './pages/EditItem';
+import { ItemDetail } from './pages/ItemDetail';
 import { UserProfile } from './types';
 import { api } from './services/db';
 
@@ -37,6 +39,8 @@ const AppRoutes = () => {
       <Route path="/chat/:matchId" element={<ProtectedRoute><Layout><Chat /></Layout></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Layout><Profile /></Layout></ProtectedRoute>} />
+      <Route path="/edit-item/:itemId" element={<ProtectedRoute><Layout><EditItem /></Layout></ProtectedRoute>} />
+      <Route path="/item/:itemId" element={<ProtectedRoute><Layout><ItemDetail /></Layout></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

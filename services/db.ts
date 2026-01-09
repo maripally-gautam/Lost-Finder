@@ -14,6 +14,8 @@ import {
   orderBy,
   limit,
   serverTimestamp,
+  onSnapshot,
+  Unsubscribe,
 } from 'firebase/firestore';
 
 // Collection names
@@ -49,6 +51,107 @@ const setStore = (key: string, data: any[]) => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
+// Event emitter for local storage changes
+const localStorageListeners: { [key: string]: ((data: any[]) => void)[] } = {};
+
+const notifyLocalStorageListeners = (key: string) => {
+  if (localStorageListeners[key]) {
+    const data = getStore(key);
+    localStorageListeners[key].forEach(callback => callback(data));
+  }
+};
+
+// Subscribe to real-time item updates
+export const subscribeToItems = (
+  type: 'lost' | 'found',
+  callback: (items: Item[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) {
+    // Local storage fallback with polling
+    const key = STORAGE_KEYS.ITEMS;
+    const filterAndCallback = () => {
+      const items = getStore<Item>(key);
+      const filtered = items
+        .filter(i => i.type === type && i.status === type)
+        .sort((a, b) => b.timestamp - a.timestamp);
+      callback(filtered);
+    };
+
+    // Initial call
+    filterAndCallback();
+
+    // Add listener
+    if (!localStorageListeners[key]) {
+      localStorageListeners[key] = [];
+    }
+    localStorageListeners[key].push(filterAndCallback);
+
+    // Return unsubscribe function
+    return () => {
+      const index = localStorageListeners[key].indexOf(filterAndCallback);
+      if (index > -1) {
+        localStorageListeners[key].splice(index, 1);
+      }
+    };
+  }
+
+  // Firebase real-time subscription
+  const q = query(
+    collection(db, COLLECTIONS.ITEMS),
+    where('type', '==', type),
+    where('status', '==', type),
+    orderBy('timestamp', 'desc'),
+    limit(50)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Item));
+    callback(items);
+  });
+};
+
+// Subscribe to messages in a chat
+export const subscribeToMessages = (
+  chatId: string,
+  callback: (messages: Message[]) => void
+): Unsubscribe => {
+  if (!isFirebaseConfigured()) {
+    const key = STORAGE_KEYS.MESSAGES;
+    const filterAndCallback = () => {
+      const messages = getStore<Message & { chatId: string }>(key);
+      const filtered = messages
+        .filter(m => m.chatId === chatId)
+        .sort((a, b) => a.timestamp - b.timestamp);
+      callback(filtered);
+    };
+
+    filterAndCallback();
+
+    if (!localStorageListeners[key]) {
+      localStorageListeners[key] = [];
+    }
+    localStorageListeners[key].push(filterAndCallback);
+
+    return () => {
+      const index = localStorageListeners[key].indexOf(filterAndCallback);
+      if (index > -1) {
+        localStorageListeners[key].splice(index, 1);
+      }
+    };
+  }
+
+  const q = query(
+    collection(db, COLLECTIONS.MESSAGES),
+    where('chatId', '==', chatId),
+    orderBy('timestamp', 'asc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+    callback(messages);
+  });
+};
+
 // --- API METHODS ---
 
 export const api = {
@@ -73,6 +176,25 @@ export const api = {
       return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Item));
     },
 
+    // Get found items
+    getFoundItems: async (): Promise<Item[]> => {
+      if (!isFirebaseConfigured()) {
+        const items = getStore<Item>(STORAGE_KEYS.ITEMS);
+        return items.filter(i => i.type === 'found' && i.status === 'found')
+          .sort((a, b) => b.timestamp - a.timestamp);
+      }
+
+      const q = query(
+        collection(db, COLLECTIONS.ITEMS),
+        where('type', '==', 'found'),
+        where('status', '==', 'found'),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Item));
+    },
+
     // Add new item
     add: async (item: Omit<Item, 'id'>): Promise<string> => {
       if (!isFirebaseConfigured()) {
@@ -80,6 +202,7 @@ export const api = {
         const newItem = { ...item, id: Math.random().toString(36).substr(2, 9) };
         items.push(newItem);
         setStore(STORAGE_KEYS.ITEMS, items);
+        notifyLocalStorageListeners(STORAGE_KEYS.ITEMS);
         return newItem.id;
       }
 
@@ -112,6 +235,7 @@ export const api = {
         if (index !== -1) {
           items[index] = { ...items[index], ...updates };
           setStore(STORAGE_KEYS.ITEMS, items);
+          notifyLocalStorageListeners(STORAGE_KEYS.ITEMS);
         }
         return;
       }
@@ -127,6 +251,7 @@ export const api = {
         const items = getStore<Item>(STORAGE_KEYS.ITEMS);
         const filtered = items.filter(i => i.id !== id);
         setStore(STORAGE_KEYS.ITEMS, filtered);
+        notifyLocalStorageListeners(STORAGE_KEYS.ITEMS);
         return;
       }
 
@@ -321,6 +446,115 @@ export const api = {
       const docRef = doc(db, COLLECTIONS.USERS, uid);
       const docSnap = await getDoc(docRef);
       return docSnap.exists();
+    }
+  },
+
+  chats: {
+    // Create or get existing chat session
+    getOrCreate: async (matchId: string, participants: string[]): Promise<ChatSession> => {
+      if (!isFirebaseConfigured()) {
+        const chats = getStore<ChatSession>(STORAGE_KEYS.CHATS);
+        let chat = chats.find(c => c.matchId === matchId);
+        if (!chat) {
+          chat = {
+            id: Math.random().toString(36).substr(2, 9),
+            matchId,
+            participants,
+          };
+          chats.push(chat);
+          setStore(STORAGE_KEYS.CHATS, chats);
+        }
+        return chat;
+      }
+
+      // Firebase - check for existing chat
+      const q = query(
+        collection(db, COLLECTIONS.CHATS),
+        where('matchId', '==', matchId),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+
+      if (!snapshot.empty) {
+        return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as ChatSession;
+      }
+
+      // Create new chat
+      const docRef = await addDoc(collection(db, COLLECTIONS.CHATS), {
+        matchId,
+        participants,
+        createdAt: serverTimestamp(),
+      });
+      return { id: docRef.id, matchId, participants };
+    },
+
+    getById: async (id: string): Promise<ChatSession | null> => {
+      if (!isFirebaseConfigured()) {
+        const chats = getStore<ChatSession>(STORAGE_KEYS.CHATS);
+        return chats.find(c => c.id === id) || null;
+      }
+
+      const docRef = doc(db, COLLECTIONS.CHATS, id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as ChatSession;
+      }
+      return null;
+    },
+
+    update: async (id: string, updates: Partial<ChatSession>): Promise<void> => {
+      if (!isFirebaseConfigured()) {
+        const chats = getStore<ChatSession>(STORAGE_KEYS.CHATS);
+        const index = chats.findIndex(c => c.id === id);
+        if (index !== -1) {
+          chats[index] = { ...chats[index], ...updates };
+          setStore(STORAGE_KEYS.CHATS, chats);
+        }
+        return;
+      }
+
+      const docRef = doc(db, COLLECTIONS.CHATS, id);
+      await updateDoc(docRef, { ...updates, updatedAt: serverTimestamp() });
+    }
+  },
+
+  messages: {
+    send: async (chatId: string, message: Omit<Message, 'id'>): Promise<string> => {
+      if (!isFirebaseConfigured()) {
+        const messages = getStore<Message & { chatId: string }>(STORAGE_KEYS.MESSAGES);
+        const newMessage = {
+          ...message,
+          id: Math.random().toString(36).substr(2, 9),
+          chatId
+        };
+        messages.push(newMessage);
+        setStore(STORAGE_KEYS.MESSAGES, messages);
+        notifyLocalStorageListeners(STORAGE_KEYS.MESSAGES);
+        return newMessage.id;
+      }
+
+      const docRef = await addDoc(collection(db, COLLECTIONS.MESSAGES), {
+        ...message,
+        chatId,
+        createdAt: serverTimestamp(),
+      });
+      return docRef.id;
+    },
+
+    getForChat: async (chatId: string): Promise<Message[]> => {
+      if (!isFirebaseConfigured()) {
+        const messages = getStore<Message & { chatId: string }>(STORAGE_KEYS.MESSAGES);
+        return messages.filter(m => m.chatId === chatId)
+          .sort((a, b) => a.timestamp - b.timestamp);
+      }
+
+      const q = query(
+        collection(db, COLLECTIONS.MESSAGES),
+        where('chatId', '==', chatId),
+        orderBy('timestamp', 'asc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
     }
   }
 };

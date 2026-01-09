@@ -30,11 +30,12 @@ const getAllLostItems = async (): Promise<Item[]> => {
 // Get all found items
 const getAllFoundItems = async (): Promise<Item[]> => {
   try {
-    const items = JSON.parse(localStorage.getItem('fg_items') || '[]');
-    return items.filter((i: Item) => i.type === 'found' && i.status === 'found');
+    const items = await api.items.getFoundItems();
+    return items.filter(i => i.type === 'found' && i.status === 'found');
   } catch (error) {
     console.error('Error fetching found items:', error);
-    return [];
+    const items = JSON.parse(localStorage.getItem('fg_items') || '[]');
+    return items.filter((i: Item) => i.type === 'found' && i.status === 'found');
   }
 };
 

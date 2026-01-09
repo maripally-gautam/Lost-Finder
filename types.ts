@@ -9,11 +9,17 @@ export interface UserProfile {
   reportsCount: number;
   joinedAt: number;
   isVerified: boolean;
+  pendingExchanges?: number; // Track pending item given confirmations
+  failedExchanges?: number; // Track failed exchanges (trust penalty)
 }
 
 export interface AppSettings {
   notifications: boolean;
   theme: 'light' | 'dark';
+  searchRadius: number; // 1-20 km
+  showGlobal: boolean; // Show all items regardless of location
+  locationMode: 'current' | 'live'; // Current = snapshot, live = continuous updates
+  currentLocation?: GeoLocation; // Stored current location when using 'current' mode
 }
 
 export type ItemPriority = 'Low' | 'Medium' | 'High';
@@ -55,6 +61,11 @@ export interface Match {
   status: 'pending' | 'accepted' | 'rejected' | 'completed';
   chatId?: string;
   timestamp: number;
+  lostUserId?: string; // Owner of lost item
+  foundUserId?: string; // Owner of found item
+  exchangeStatus?: 'none' | 'founder_confirmed' | 'owner_confirmed' | 'completed' | 'expired';
+  exchangeStartTime?: number; // When founder clicked "Item Given"
+  exchangeConfirmedBy?: string[]; // User IDs who confirmed
 }
 
 export interface Message {
@@ -63,14 +74,20 @@ export interface Message {
   text: string;
   timestamp: number;
   isSystem?: boolean;
+  encrypted?: boolean; // Flag for encrypted messages
+  iv?: string; // Initialization vector for encryption
 }
 
 export interface ChatSession {
   id: string;
   matchId: string;
   participants: string[];
+  encryptionKey?: string; // Shared encryption key (stored securely)
   handoverStarted?: boolean;
   handoverConfirmedByFinder?: boolean;
   handoverConfirmedByLoser?: boolean;
   handoverStartTime?: number; // For the 5-minute timer
 }
+
+// Exchange timer constants
+export const EXCHANGE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
