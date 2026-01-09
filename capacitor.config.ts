@@ -2,8 +2,12 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.lostlink.ai',
-  appName: 'LostLink AI',
+  appName: 'FinderGaurd AI',
   webDir: 'dist',
+  server: {
+    hostname: 'tracemate-ai.firebaseapp.com',
+    androidScheme: 'https'
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
