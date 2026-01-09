@@ -69,7 +69,7 @@ export const PostFound: React.FC = () => {
             status: 'pending',
             timestamp: Date.now()
           });
-          
+
           // Send notification to both users
           await notifyMatch(match.lostItemId, newItemId, match.confidence);
         }

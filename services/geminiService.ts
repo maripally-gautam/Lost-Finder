@@ -120,7 +120,7 @@ export const findMatchesForLostItem = async (lostItem: Item): Promise<Partial<Ma
   // 1. Fetch potential found items (same category, recent)
   const allItems = await api.items.getUserItems(lostItem.userId);
   const allFoundItems: Item[] = [];
-  
+
   // Get all items from storage or Firebase
   if (!import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID === 'your_project_id') {
     // localStorage fallback

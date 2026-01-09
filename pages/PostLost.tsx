@@ -84,7 +84,7 @@ export const PostLost: React.FC = () => {
             status: 'pending',
             timestamp: Date.now()
           });
-          
+
           // Send notification to both users
           await notifyMatch(newItemId, match.foundItemId, match.confidence);
         }
@@ -167,8 +167,8 @@ export const PostLost: React.FC = () => {
                 variant={priority === p ? 'default' : 'outline'}
                 onClick={() => setPriority(p as ItemPriority)}
                 className={`text-xs font-bold ${priority === p
-                    ? 'bg-brand-600 border-brand-500'
-                    : 'bg-brand-900 border-brand-700 text-slate-400'
+                  ? 'bg-brand-600 border-brand-500'
+                  : 'bg-brand-900 border-brand-700 text-slate-400'
                   }`}
               >
                 {p} Priority
