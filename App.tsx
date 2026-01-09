@@ -53,6 +53,14 @@ export default function App() {
         if (u) setUser(u);
       });
     }
+
+    // Apply saved theme
+    const savedTheme = localStorage.getItem('app_theme');
+    if (savedTheme === 'light') {
+      document.body.classList.add('light');
+    } else {
+      document.body.classList.remove('light');
+    }
   }, []);
 
   const login = (u: UserProfile) => {

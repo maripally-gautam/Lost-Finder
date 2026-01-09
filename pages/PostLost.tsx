@@ -2,6 +2,8 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../App';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/db';
+import { findMatchesForLostItem } from '../services/geminiService';
+import { notifyMatch } from '../services/notificationService';
 import { CATEGORIES } from '../constants';
 import { ItemPriority, GeoLocation } from '../types';
 import { Camera, MapPin, Lock } from 'lucide-react';
@@ -48,21 +50,48 @@ export const PostLost: React.FC = () => {
       address: 'Downtown Area'
     };
 
-    await api.items.add({
+    const newItemData = {
       userId: user.uid,
-      type: 'lost',
+      type: 'lost' as const,
       title: title || `${category} Item`,
       description,
       category,
       location,
       priority,
-      status: 'lost',
+      status: 'lost' as const,
       timestamp: Date.now(),
       image,
       privateDetails: {
         distinguishingMarks: privateMarks
       }
-    });
+    };
+
+    // Save to DB
+    const newItemId = await api.items.add(newItemData);
+    const newItem = { ...newItemData, id: newItemId };
+
+    // Check for matches against existing found items
+    try {
+      const matches = await findMatchesForLostItem(newItem);
+
+      // Save matches and send notifications
+      for (const match of matches) {
+        if (match.foundItemId && match.confidence) {
+          await api.matches.create({
+            lostItemId: newItemId,
+            foundItemId: match.foundItemId,
+            confidence: match.confidence,
+            status: 'pending',
+            timestamp: Date.now()
+          });
+          
+          // Send notification to both users
+          await notifyMatch(newItemId, match.foundItemId, match.confidence);
+        }
+      }
+    } catch (error) {
+      console.error('Error matching lost item:', error);
+    }
 
     setLoading(false);
     navigate('/');

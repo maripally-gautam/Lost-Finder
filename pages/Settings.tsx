@@ -21,11 +21,13 @@ export const Settings: React.FC = () => {
 
     useEffect(() => {
         localStorage.setItem('app_theme', darkMode ? 'dark' : 'light');
-        // Apply theme to document
+        // Apply theme to body element
         if (darkMode) {
-            document.documentElement.classList.add('dark');
+            document.body.classList.remove('light');
+            document.body.classList.add('dark');
         } else {
-            document.documentElement.classList.remove('dark');
+            document.body.classList.remove('dark');
+            document.body.classList.add('light');
         }
     }, [darkMode]);
 
@@ -85,21 +87,6 @@ export const Settings: React.FC = () => {
                                 checked={darkMode}
                                 onCheckedChange={setDarkMode}
                             />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* App Info */}
-                <Card className="bg-brand-800 border-brand-700">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-brand-700 flex items-center justify-center">
-                                <Shield size={20} className="text-brand-accent" />
-                            </div>
-                            <div>
-                                <p className="text-white font-medium">LostLink AI</p>
-                                <p className="text-sm text-slate-400">Version 1.0.0</p>
-                            </div>
                         </div>
                     </CardContent>
                 </Card>

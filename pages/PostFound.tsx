@@ -3,6 +3,7 @@ import { AuthContext } from '../App';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/db';
 import { findPotentialMatches } from '../services/geminiService';
+import { notifyMatch } from '../services/notificationService';
 import { CATEGORIES } from '../constants';
 import { GeoLocation } from '../types';
 import { Camera, Sparkles, AlertTriangle } from 'lucide-react';
@@ -58,7 +59,7 @@ export const PostFound: React.FC = () => {
     try {
       const matches = await findPotentialMatches(newItem);
 
-      // 4. Save Matches
+      // 4. Save Matches and Send Notifications
       for (const match of matches) {
         if (match.lostItemId && match.confidence) {
           await api.matches.create({
@@ -68,6 +69,9 @@ export const PostFound: React.FC = () => {
             status: 'pending',
             timestamp: Date.now()
           });
+          
+          // Send notification to both users
+          await notifyMatch(match.lostItemId, newItemId, match.confidence);
         }
       }
 
